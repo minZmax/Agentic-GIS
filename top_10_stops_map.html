@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_e8df5dcbe252b7caf9c74930a1d0a9ef {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+
+            <style>html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            </style>
+
+            <style>#map {
+                position:absolute;
+                top:0;
+                bottom:0;
+                right:0;
+                left:0;
+                }
+            </style>
+
+            <script>
+                L_NO_TOUCH = false;
+                L_DISABLE_3D = false;
+            </script>
+
+        
+</head>
+<body>
+    
+    <h4 align="center" style="font-size:16px"><b>승하차 Top 10 정류장 시각화</b></h4>
+    
+            <div class="folium-map" id="map_e8df5dcbe252b7caf9c74930a1d0a9ef" ></div>
+        
+</body>
+<script>
+    
+    
+            var map_e8df5dcbe252b7caf9c74930a1d0a9ef = L.map(
+                "map_e8df5dcbe252b7caf9c74930a1d0a9ef",
+                {
+                    center: [37.6574112, 126.80635509999999],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  "zoom": 13,
+  "zoomControl": true,
+  "preferCanvas": false,
+}
+
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_db89c3eb9075ece25bb844114740f1af = L.tileLayer(
+                "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+                {
+  "minZoom": 0,
+  "maxZoom": 20,
+  "maxNativeZoom": 20,
+  "noWrap": false,
+  "attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors \u0026copy; \u003ca href=\"https://carto.com/attributions\"\u003eCARTO\u003c/a\u003e",
+  "subdomains": "abcd",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_db89c3eb9075ece25bb844114740f1af.addTo(map_e8df5dcbe252b7caf9c74930a1d0a9ef);
+        
+    
+            var circle_marker_17c9f1180735d838f6a91fe9b7245710 = L.circleMarker(
+                [37.634612, 126.832658],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "red", "fillOpacity": 0.6, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 25.0, "stroke": true, "weight": 3}
+            ).addTo(map_e8df5dcbe252b7caf9c74930a1d0a9ef);
+        
+    
+            circle_marker_17c9f1180735d838f6a91fe9b7245710.bindTooltip(
+                `<div>
+                     <b>화정</b> (None)<br>총 이용객: 222,573.0명 (승차: 108,902.0 / 하차: 113,671.0)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_8b21b15ea90af4dcb2f8ee089a1c1faa = L.circleMarker(
+                [37.653062, 126.895698],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "red", "fillOpacity": 0.6, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 23.585722437132986, "stroke": true, "weight": 3}
+            ).addTo(map_e8df5dcbe252b7caf9c74930a1d0a9ef);
+        
+    
+            circle_marker_8b21b15ea90af4dcb2f8ee089a1c1faa.bindTooltip(
+                `<div>
+                     <b>삼송</b> (None)<br>총 이용객: 206,834.0명 (승차: 104,971.0 / 하차: 101,863.0)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_492d93d2daab99404f729a989d4e171f = L.circleMarker(
+                [37.682025, 126.770002],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "red", "fillOpacity": 0.6, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 17.71178444824844, "stroke": true, "weight": 3}
+            ).addTo(map_e8df5dcbe252b7caf9c74930a1d0a9ef);
+        
+    
+            circle_marker_492d93d2daab99404f729a989d4e171f.bindTooltip(
+                `<div>
+                     <b>일산</b> (None)<br>총 이용객: 141,465.0명 (승차: 71,369.0 / 하차: 70,096.0)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_c60e49f380a38d24c4c9a798f8f14db2 = L.circleMarker(
+                [37.642996, 126.788125],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "red", "fillOpacity": 0.6, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 17.373827912639896, "stroke": true, "weight": 3}
+            ).addTo(map_e8df5dcbe252b7caf9c74930a1d0a9ef);
+        
+    
+            circle_marker_c60e49f380a38d24c4c9a798f8f14db2.bindTooltip(
+                `<div>
+                     <b>백석</b> (None)<br>총 이용객: 137,704.0명 (승차: 67,931.0 / 하차: 69,773.0)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_db3dd83c8ff46bbcd53fe8ed85b62718 = L.circleMarker(
+                [37.650463, 126.873933],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "red", "fillOpacity": 0.6, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 17.253058547083427, "stroke": true, "weight": 3}
+            ).addTo(map_e8df5dcbe252b7caf9c74930a1d0a9ef);
+        
+    
+            circle_marker_db3dd83c8ff46bbcd53fe8ed85b62718.bindTooltip(
+                `<div>
+                     <b>원흥</b> (None)<br>총 이용객: 136,360.0명 (승차: 69,474.0 / 하차: 66,886.0)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_258e1042971f15ac5a23d349f3c21677 = L.circleMarker(
+                [37.67015, 126.761257],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "red", "fillOpacity": 0.6, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 16.145197306052395, "stroke": true, "weight": 3}
+            ).addTo(map_e8df5dcbe252b7caf9c74930a1d0a9ef);
+        
+    
+            circle_marker_258e1042971f15ac5a23d349f3c21677.bindTooltip(
+                `<div>
+                     <b>주엽</b> (None)<br>총 이용객: 124,031.0명 (승차: 63,196.0 / 하차: 60,835.0)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_1167a01186379198c6bd7e39d2dd1ed0 = L.circleMarker(
+                [37.6533, 126.843012],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "red", "fillOpacity": 0.6, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 15.69383977391687, "stroke": true, "weight": 3}
+            ).addTo(map_e8df5dcbe252b7caf9c74930a1d0a9ef);
+        
+    
+            circle_marker_1167a01186379198c6bd7e39d2dd1ed0.bindTooltip(
+                `<div>
+                     <b>원당</b> (None)<br>총 이용객: 119,008.0명 (승차: 60,099.0 / 하차: 58,909.0)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_2c408b6c4aa2a5475f75735bc065915c = L.circleMarker(
+                [37.652127, 126.777711],
+                {"bubblingMouseEvents": true, "color": "orange", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.6, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 14.951162090639924, "stroke": true, "weight": 3}
+            ).addTo(map_e8df5dcbe252b7caf9c74930a1d0a9ef);
+        
+    
+            circle_marker_2c408b6c4aa2a5475f75735bc065915c.bindTooltip(
+                `<div>
+                     <b>마두</b> (None)<br>총 이용객: 110,743.0명 (승차: 55,286.0 / 하차: 55,457.0)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_e13fd61e05529acc2b8bd51de304ae9b = L.circleMarker(
+                [37.675883, 126.747756],
+                {"bubblingMouseEvents": true, "color": "orange", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.6, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 14.583821937072331, "stroke": true, "weight": 3}
+            ).addTo(map_e8df5dcbe252b7caf9c74930a1d0a9ef);
+        
+    
+            circle_marker_e13fd61e05529acc2b8bd51de304ae9b.bindTooltip(
+                `<div>
+                     <b>대화</b> (None)<br>총 이용객: 106,655.0명 (승차: 56,736.0 / 하차: 49,919.0)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_08574a6746209f3ab91dc1d3966e3f7c = L.circleMarker(
+                [37.659494, 126.773399],
+                {"bubblingMouseEvents": true, "color": "orange", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.6, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 14.547968531672755, "stroke": true, "weight": 3}
+            ).addTo(map_e8df5dcbe252b7caf9c74930a1d0a9ef);
+        
+    
+            circle_marker_08574a6746209f3ab91dc1d3966e3f7c.bindTooltip(
+                `<div>
+                     <b>정발산</b> (None)<br>총 이용객: 106,256.0명 (승차: 52,163.0 / 하차: 54,093.0)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+</script>
+</html>

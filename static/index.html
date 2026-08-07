@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="고양시 버스 교통 데이터를 자연어로 분석하는 Agentic GIS">
+  <title>고양시 Agentic GIS</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <!-- Chart.js 라이브러리 추가 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <div class="logo"><div class="logo-icon">G</div><span>고양시 Agentic GIS</span></div>
+      <div class="status"><div class="status-dot" id="statusDot"></div><span id="connectionStatus">DB 연결 확인 중</span></div>
+    </header>
+    <main class="main-content">
+      <section class="chat-panel" id="chatPanel">
+        <!-- 상단 퀵 버튼 영역 -->
+        <div class="quick-buttons">
+            <button type="button" class="quick-btn" data-prompt="고양시 버스 이용량 상위 10개 정류장을 보여줘">상위 버스정류장</button>
+            <button type="button" class="quick-btn" data-prompt="고양시 지하철 이용량 상위 10개 역을 보여줘">상위 지하철역</button>
+            <button type="button" class="quick-btn" data-prompt="탄현지구 정류장과 이용량을 보여줘">택지지구별 분석</button>
+            <button type="button" class="quick-btn" data-prompt="탄현지구 버스 정류장에서 지하철역으로 가는 OD 통행패턴을 보여줘">OD분석</button>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+          <div class="welcome-message">
+            <div class="welcome-icon">🗺️</div>
+            <h3>고양시 교통 분석 어시스턴트</h3>
+            <p>자연어로 질문하면 분석 결과와 지도 레이어를 함께 표시합니다.</p>
+          </div>
+        </div>
+
+        <!-- 📊 이용량 비교 차트 컨테이너 영역 (추가) -->
+        <div class="chart-container" id="chartContainer" style="display: none; padding: 12px 16px; background: #1e293b; border-radius: 8px; margin: 10px 16px; border: 1px solid #334155;">
+          <div class="chart-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span class="chart-title" style="color: #f8fafc; font-size: 13px; font-weight: 600;">📊 이용량 순위 분석</span>
+            <button class="chart-close-btn" id="chartCloseBtn" onclick="document.getElementById('chartContainer').style.display='none'" style="background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 14px;">✕</button>
+          </div>
+          <div class="chart-wrapper" style="position: relative; height: 200px;">
+            <canvas id="analyticsChart"></canvas>
+          </div>
+        </div>
+
+        <div class="typing-indicator" id="typingIndicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>
+        <div class="chat-input-wrapper"><div class="chat-input-container">
+          <input class="chat-input" id="chatInput" placeholder="예: 이용량 상위 20개 정류장을 지도에 보여줘" autocomplete="off">
+          <button class="send-btn" id="sendBtn" aria-label="질문 전송">➤</button>
+        </div></div>
+      </section>
+      <div class="resize-handle" id="resizeHandle"></div>
+      <section class="map-panel">
+        <div id="map"></div>
+        <div class="map-info" id="mapInfo"><div class="info-title" id="mapInfoTitle"></div><div id="mapInfoDetail"></div></div>
+        <div class="map-legend" id="mapLegend"></div>
+      </section>
+    </main>
+  </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- 💡 OD 화살표 표출용 Polyline Decorator 플러그인 -->
+  <script src="https://cdn.jsdelivr.net/npm/leaflet-polyline-decorator@1.6.0/leaflet.polylineDecorator.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+Flask>=3.1,<4
+python-dotenv>=1.0,<2
+SQLAlchemy>=2.0,<3
+psycopg2-binary>=2.9,<3
+pandas>=2.2,<3
+GeoPandas>=1.0,<2
+Shapely>=2.0,<3
+tabulate>=0.9,<1
+google-genai>=2.0,<3

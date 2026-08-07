@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_52154656250410dac1488e7bb121291a {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+
+            <style>html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            </style>
+
+            <style>#map {
+                position:absolute;
+                top:0;
+                bottom:0;
+                right:0;
+                left:0;
+                }
+            </style>
+
+            <script>
+                L_NO_TOUCH = false;
+                L_DISABLE_3D = false;
+            </script>
+
+        
+</head>
+<body>
+    
+    <h4 align="center" style="font-size:16px"><b>승하차 Top 5 정류장 시각화</b></h4>
+    
+            <div class="folium-map" id="map_52154656250410dac1488e7bb121291a" ></div>
+        
+</body>
+<script>
+    
+    
+            var map_52154656250410dac1488e7bb121291a = L.map(
+                "map_52154656250410dac1488e7bb121291a",
+                {
+                    center: [37.660275231675016, 126.77149666569366],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  "zoom": 13,
+  "zoomControl": true,
+  "preferCanvas": false,
+}
+
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_1cbf9c851607ebc83082efc0529d6387 = L.tileLayer(
+                "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+                {
+  "minZoom": 0,
+  "maxZoom": 20,
+  "maxNativeZoom": 20,
+  "noWrap": false,
+  "attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors \u0026copy; \u003ca href=\"https://carto.com/attributions\"\u003eCARTO\u003c/a\u003e",
+  "subdomains": "abcd",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_1cbf9c851607ebc83082efc0529d6387.addTo(map_52154656250410dac1488e7bb121291a);
+        
+    
+            var circle_marker_19d6e662c638bcc7251d6e6fe75225cc = L.circleMarker(
+                [37.657822972315195, 126.77428740467916],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "red", "fillOpacity": 0.6, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 25.0, "stroke": true, "weight": 3}
+            ).addTo(map_52154656250410dac1488e7bb121291a);
+        
+    
+            circle_marker_19d6e662c638bcc7251d6e6fe75225cc.bindTooltip(
+                `<div>
+                     <b>일산동구청(중)</b> (장항2동)<br>총 이용객: 35,197.0명 (승차: 15,583.0 / 하차: 19,103.0)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_dad69a1fa6a57fea552dadbd7f877da5 = L.circleMarker(
+                [37.65742190185862, 126.77470061167166],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "red", "fillOpacity": 0.6, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 23.719209023496322, "stroke": true, "weight": 3}
+            ).addTo(map_52154656250410dac1488e7bb121291a);
+        
+    
+            circle_marker_dad69a1fa6a57fea552dadbd7f877da5.bindTooltip(
+                `<div>
+                     <b>일산동구청(중)</b> (마두1동)<br>총 이용객: 32,943.0명 (승차: 18,131.0 / 하차: 14,302.0)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_8fe0a0c92b7ba057f34559a27134013a = L.circleMarker(
+                [37.6518069154614, 126.77799544284981],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "red", "fillOpacity": 0.6, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 23.685683438929455, "stroke": true, "weight": 3}
+            ).addTo(map_52154656250410dac1488e7bb121291a);
+        
+    
+            circle_marker_8fe0a0c92b7ba057f34559a27134013a.bindTooltip(
+                `<div>
+                     <b>마두역(중)</b> (마두2동)<br>총 이용객: 32,884.0명 (승차: 15,080.0 / 하차: 17,325.0)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_98b58435dbd91aff98af4520b0cba224 = L.circleMarker(
+                [37.67025615646307, 126.7609936926665],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "red", "fillOpacity": 0.6, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 20.022871267437566, "stroke": true, "weight": 3}
+            ).addTo(map_52154656250410dac1488e7bb121291a);
+        
+    
+            circle_marker_98b58435dbd91aff98af4520b0cba224.bindTooltip(
+                `<div>
+                     <b>주엽역(중)</b> (주엽2동)<br>총 이용객: 26,438.0명 (승차: 12,033.0 / 하차: 13,991.0)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_8457e1769246b8aa55bcc2dbaa23beb5 = L.circleMarker(
+                [37.66406821227683, 126.76950617660125],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "red", "fillOpacity": 0.6, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 16.840781884819727, "stroke": true, "weight": 3}
+            ).addTo(map_52154656250410dac1488e7bb121291a);
+        
+    
+            circle_marker_8457e1769246b8aa55bcc2dbaa23beb5.bindTooltip(
+                `<div>
+                     <b>일산동부경찰서(중)</b> (정발산동)<br>총 이용객: 20,838.0명 (승차: 8,138.0 / 하차: 12,439.0)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+</script>
+</html>
