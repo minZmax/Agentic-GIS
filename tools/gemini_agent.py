@@ -5,7 +5,7 @@ import os
 import re
 import traceback
 from dataclasses import dataclass
-
+from dotenv import load_dotenv
 import pandas as pd
 
 from tools.db_tool import (
@@ -186,11 +186,15 @@ SYSTEM_INSTRUCTION = f"""당신은 고양시 대중교통 GIS/데이터 분석�
 사용자 질문에 답하기 위해 아래 도구 중 가장 적합한 것을 호출하세요:
 
 [지도 시각화가 필요한 질문 -> 전용 도구 사용]
-1. 특정 지구(창릉, 삼송, 향동, 일산, 화정, 탄현 등)의 정류장/이용량을 지도에 보여달라는 질문
+1. 행정동간 통행(OD) 흐름, 통행 패턴, 이동량, 출발/도착 관련 질문 -> dong_od_flow(start_dong=..., end_dong=..., limit=...)
+   ⚠️ 최우선 규칙: 질문에 'OD', '통행', '패턴', '이동량', '흐름' 등의 단어가 들어가면 top_stops나 district_traffic이 아니라 반드시 dong_od_flow를 최우선 호출하세요!
+   예: "탄현지구 버스 정류장에서 지하철역으로 가는 OD 통행 패턴을 보여줘" -> dong_od_flow(start_dong="탄현", limit=10)
+   예: "화정동에서 행신동 이동 흐름" -> dong_od_flow(start_dong="화정", end_dong="행신", limit=10)
+
+2. 특정 지구(창릉, 삼송, 향동, 일산, 화정, 탄현 등)의 정류장/이용량을 지도에 보여달라는 질문
    -> district_traffic(district_name=...)
-2. 고양시 전체 택지지구를 비교해서 지도에 보여달라는 질문 -> housing_district_summary()
-3. 이용량 상위 N개 정류장을 지도에 보여달라는 질문 -> top_stops(limit=N)
-4. 행정동간 통행(OD) 흐름을 지도에 보여달라는 질문 -> dong_od_flow(...)
+3. 고양시 전체 택지지구를 비교해서 지도에 보여달라는 질문 -> housing_district_summary()
+4. 이용량 상위 N개 정류장을 지도에 보여달라는 질문 -> top_stops(limit=N)
 
 [그 외 모든 질문 -> run_sql_query(sql=...) 사용]
 위 4개 도구로 해결되지 않는 질문(개수 세기, 통계, 조건 필터, 비교, 순위 등 지도 시각화가
@@ -210,9 +214,13 @@ def query_with_gemini(prompt: str) -> dict:
     except ImportError as exc:
         raise RuntimeError("google-genai 패키지가 설치되지 않았습니다.") from exc
 
-    api_key = os.getenv("GEMINI_API_KEY")
+    # 💡 1. .env 환경변수 로드
+    load_dotenv()
+
+    # 💡 2. GEMINI_API_KEY 또는 GOOGLE_API_KEY 이름을 환경변수 키로 전달하도록 수정
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not api_key:
-        raise RuntimeError("GEMINI_API_KEY가 설정되지 않았습니다.")
+        raise RuntimeError("GEMINI_API_KEY가 .env 파일에 설정되지 않았습니다.")
 
     client = genai.Client(api_key=api_key)
     last_result: ToolResult | None = None

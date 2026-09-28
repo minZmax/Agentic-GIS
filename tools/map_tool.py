@@ -2,10 +2,11 @@ import folium
 import geopandas as gpd
 import pandas as pd
 import sys, os
-
 from sqlalchemy import text
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tools.db_tool import get_district_boundary_geom, search_stops_with_geom, engine
+from tools.map_data import get_od_flow_geojson
 
 
 def create_stops_map(stops_df: pd.DataFrame, output_html: str = "stops_map.html", title: str = "정류장 이용객 시각화") -> str:
@@ -18,7 +19,6 @@ def create_stops_map(stops_df: pd.DataFrame, output_html: str = "stops_map.html"
 
     merged = pd.merge(stops_df, geom_gdf[["stop_id", "geometry"]], on="stop_id", how="inner")
     
-    # 만약 stop_admin_mapping과 ID 매핑이 안 되면 tcn_sttn_raw에서 lat/lon 수집
     if merged.empty:
         ids_str = "', '".join(stop_ids)
         sttn_sql = f"SELECT DISTINCT ON (stop_id) stop_id, CAST(stop_x AS FLOAT) as lat, CAST(stop_y AS FLOAT) as lon FROM tcn_sttn_raw WHERE stop_id IN ('{ids_str}');"
@@ -38,7 +38,6 @@ def create_stops_map(stops_df: pd.DataFrame, output_html: str = "stops_map.html"
     center = [merged_gdf.geometry.y.mean(), merged_gdf.geometry.x.mean()]
     m = folium.Map(location=center, zoom_start=13, tiles="cartodbpositron")
 
-    # 헤더 타이틀 추가
     title_html = f'<h4 align="center" style="font-size:16px"><b>{title}</b></h4>'
     m.get_root().html.add_child(folium.Element(title_html))
 
@@ -54,7 +53,6 @@ def create_stops_map(stops_df: pd.DataFrame, output_html: str = "stops_map.html"
         dong = row.get("dong_name", "-")
 
         radius = 5 + (passengers / max_passengers) * 20
-
         color = "red" if passengers > (max_passengers * 0.5) else "orange" if passengers > (max_passengers * 0.2) else "blue"
 
         tooltip_text = f"<b>{stop_name}</b> ({dong})<br>총 이용객: {passengers:,}명 (승차: {boardings:,} / 하차: {alightings:,})"
@@ -83,14 +81,13 @@ def create_district_map(district_name: str, output_html: str = "district_map.htm
         return None
 
     if not bound_gdf.empty:
-        bounds = bound_gdf.total_bounds  # [minx, miny, maxx, maxy]
+        bounds = bound_gdf.total_bounds
         center = [(bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2]
     else:
         center = [stops_gdf.geometry.y.mean(), stops_gdf.geometry.x.mean()]
 
     m = folium.Map(location=center, zoom_start=14, tiles="cartodbpositron")
 
-    # 택지지구 폴리곤
     if not bound_gdf.empty:
         for _, row in bound_gdf.iterrows():
             folium.GeoJson(
@@ -99,7 +96,6 @@ def create_district_map(district_name: str, output_html: str = "district_map.htm
                 tooltip=f"택지지구: {row['admin_name']}",
             ).add_to(m)
 
-    # 정류장 마커
     if not stops_gdf.empty:
         for _, row in stops_gdf.iterrows():
             folium.CircleMarker(
@@ -121,53 +117,43 @@ def create_district_map(district_name: str, output_html: str = "district_map.htm
 
 
 def create_od_flow_map(od_df: pd.DataFrame, output_html: str = "od_flow_map.html") -> str:
-    """행정동 간 이동 흐름(OD)을 중심점 연결선으로 지도 시각화"""
-    if od_df.empty:
+    """행정동 간 이동 흐름(OD)을 반화살표(⇀) GeoJSON 데이터로 지도 시각화"""
+    if od_df is None or od_df.empty:
         return None
 
-    # 행정동 중심점 좌표 구하기
-    dong_sql = "SELECT admin_name, ST_AsText(ST_Centroid(geometry)) as centroid FROM admin_boundary WHERE admin_level = 'dong';"
-    dong_df = pd.read_sql(text(dong_sql), engine)
-
-    # Centroid WKT 파싱
-    coords = {}
-    for _, r in dong_df.iterrows():
-        try:
-            wkt = r["centroid"]  # POINT(x y)
-            x_y = wkt.replace("POINT(", "").replace(")", "").split()
-            coords[r["admin_name"]] = (float(x_y[1]), float(x_y[0]))
-        except Exception:
-            continue
+    geojson_data = get_od_flow_geojson(od_df)
+    if not geojson_data or not geojson_data.get("features"):
+        return None
 
     m = folium.Map(location=[37.658, 126.832], zoom_start=12, tiles="cartodbpositron")
 
     title_html = '<h4 align="center" style="font-size:16px"><b>행정동 간 버스 통행 흐름(OD) 시각화</b></h4>'
     m.get_root().html.add_child(folium.Element(title_html))
 
-    lines_added = 0
-    for _, row in od_df.iterrows():
-        start = row.get("start_dong")
-        end = row.get("end_dong")
-        trips = row.get("total_trips", 0)
+    def style_od_feature(feature):
+        props = feature.get("properties", {})
+        return {
+            "color": props.get("line_color", "#ff3b30"),
+            "weight": props.get("line_weight", 3),
+            "opacity": props.get("line_opacity", 0.7),
+            "fill": False,
+            "fillOpacity": 0,
+            "lineCap": "round",
+            "lineJoin": "round"
+        }
 
-        if start in coords and end in coords:
-            start_coord = coords[start]
-            end_coord = coords[end]
+    tooltip_geojson = folium.GeoJsonTooltip(
+        fields=["start_dong", "end_dong", "total_passengers", "avg_distance_km", "avg_time_min"],
+        aliases=["출발:", "도착:", "승객수(명):", "평균거리(km):", "평균시간(분):"],
+        localize=True,
+        sticky=True
+    )
 
-            # 출발/도착 마커
-            folium.CircleMarker(location=start_coord, radius=5, color="green", fill=True, tooltip=f"출발: {start}").add_to(m)
-            folium.CircleMarker(location=end_coord, radius=5, color="red", fill=True, tooltip=f"도착: {end}").add_to(m)
-
-            # 연결선
-            popup_txt = f"{start} ➡️ {end}<br>통행건수: {trips:,}건<br>평균거리: {row.get('avg_distance_km', 0)}km<br>평균시간: {row.get('avg_time_min', 0)}분"
-            folium.PolyLine(
-                locations=[start_coord, end_coord],
-                color="blue",
-                weight=2 + min(trips / 1000, 8),
-                opacity=0.6,
-                tooltip=popup_txt,
-            ).add_to(m)
-            lines_added += 1
+    folium.GeoJson(
+        geojson_data,
+        style_function=style_od_feature,
+        tooltip=tooltip_geojson
+    ).add_to(m)
 
     output_path = os.path.abspath(output_html)
     m.save(output_path)

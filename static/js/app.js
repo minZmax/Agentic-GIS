@@ -5,13 +5,14 @@
     preferCanvas: true
   }).setView([37.658, 126.835], 12);
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=cb1_3wwe_1_1ddfbe990c714d51751102c0', {
     maxZoom: 19
   }).addTo(map);
 
   const analysisLayerGroup = L.featureGroup().addTo(map);
 
   let currentChart = null;
+  let odArrowItems = []; // 💡 축척(Zoom) 변경 시 실시간 재계산할 화살표 레이어 보관 배열
   const referenceLayers = {};
   const layerControl = L.control.layers({}, referenceLayers, { collapsed: false, position: "topright" }).addTo(map);
   const $ = (id) => document.getElementById(id);
@@ -22,7 +23,6 @@
     return el.innerHTML; 
   }
 
-  // 💡 [안전 강화] [0,0] 좌표나 NaN 값은 원천 필터링
   function isValidCoord(c) {
     if (!Array.isArray(c) || c.length < 2) return false;
     const lng = Number(c[0]);
@@ -32,18 +32,15 @@
     return true;
   }
 
-  // 💡 [줌투레이어 개선] [lat,lng] / [lng,lat] 순서가 섞여 와도 안전하게 보정
   function toLatLng(coord) {
     let lng = Number(coord[0]);
     let lat = Number(coord[1]);
     if (lng >= 30 && lng <= 45 && lat >= 120 && lat <= 135) {
-      const tmp = lng; lng = lat; lat = tmp; // 서버가 [lat, lng] 순서로 보낸 경우 보정
+      const tmp = lng; lng = lat; lat = tmp;
     }
     return [lat, lng];
   }
 
-  // 💡 [줌투레이어 개선] Leaflet 레이어의 getBounds() 체인에 의존하지 않고
-  // 서버가 보내준 GeoJSON 좌표에서 직접 범위를 계산 (더 안전하고 실패 확률 낮음)
   function computeBoundsFromGeoJSON(geojson) {
     const bounds = new L.LatLngBounds();
     (geojson.features || []).forEach((feature) => {
@@ -66,11 +63,47 @@
   function clearLayer() { 
     try {
       analysisLayerGroup.clearLayers(); 
+      odArrowItems = []; // 화살표 보관 배열 초기화
       $("mapLegend").classList.remove("active"); 
     } catch(e) {
       console.warn("레이어 초기화 예외 방어:", e);
     }
   }
+
+  function updateHalfArrows() {
+    if (!odArrowItems.length) return;
+
+    const currentZoom = map.getZoom();
+    // 줌 레벨별 화살표 머리 픽셀 크기 축소 (기존 18~36px -> 10~20px로 다이어트)
+    const pxLen = Math.min(20, Math.max(10, 8 + (currentZoom - 10) * 2));
+    const pxWidth = pxLen * 0.4;
+
+    odArrowItems.forEach(item => {
+      const { tip, back, polygonLayer } = item;
+      const pTip = map.latLngToLayerPoint(tip);
+      const pBack = map.latLngToLayerPoint(back);
+
+      const dx = pTip.x - pBack.x;
+      const dy = pTip.y - pBack.y;
+      const len = Math.sqrt(dx * dx + dy * dy);
+
+      if (len < 2) return;
+
+      const ux = dx / len;
+      const uy = dy / len;
+
+      const pBase = { x: pTip.x - ux * pxLen, y: pTip.y - uy * pxLen };
+      const pBarb = { x: pBase.x - uy * pxWidth, y: pBase.y + ux * pxWidth };
+
+      const baseLatLng = map.layerPointToLatLng(L.point(pBase.x, pBase.y));
+      const barbLatLng = map.layerPointToLatLng(L.point(pBarb.x, pBarb.y));
+
+      polygonLayer.setLatLngs([tip, barbLatLng, baseLatLng]);
+    });
+  }
+
+  // 지도 줌 이동이 끝날 때마다 화살표 머리 픽셀 크기 재조정
+  map.on('zoomend', updateHalfArrows);
 
   function getGraduatedStyle(passengers, maxVal, isSubway) {
     const ratio = maxVal > 0 ? Math.min(Math.max(passengers / maxVal, 0), 1) : 0.5;
@@ -140,10 +173,15 @@
   }
 
   function popup(p) {
-    if (p.start_dong) {
-      return `<strong>${esc(p.start_dong)} → ${esc(p.end_dong)}</strong><br>` +
-        `<small>통행 ${Number(p.total_trips || 0).toLocaleString()}건 · 승객 ${Number(p.total_passengers || 0).toLocaleString()}명</small>` +
-        `<br><small>평균 ${esc(p.avg_distance_km)}km / ${esc(p.avg_time_min)}분</small>`;
+    if (p.start_stop_name || p.start_dong) {
+      const startName = p.start_stop_name || p.start_dong;
+      const endName = p.end_stop_name || p.end_dong;
+      let text = `<strong>${esc(startName)} ➡️ ${esc(endName)}</strong><br>`;
+      text += `<small>통행량: <b>${Number(p.total_trips || p.total_passengers || 0).toLocaleString()}건</b></small>`;
+      if (p.avg_distance_km) {
+        text += `<br><small>평균 ${esc(p.avg_distance_km)}km / ${esc(p.avg_time_min)}분</small>`;
+      }
+      return text;
     }
 
     if (p.layer_type === "boundary" || p.admin_name || p.housing_district_name) {
@@ -202,10 +240,28 @@
           </div>
         </div>
       `;
+    } else if (type === "od_flow") {
+      legendEl.innerHTML = `
+        <h4 style="margin-bottom:8px; font-weight:bold;">OD 통행 범례</h4>
+        <div style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #f8fafc;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="width:12px; height:12px; border-radius:50%; background:#22c55e; border:1.5px solid #fff; display:inline-block; flex-shrink:0;"></span>
+            <span>기점 (출발 버스정류장)</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="width:14px; height:14px; border-radius:50%; background:#ef4444; border:1.5px solid #fff; display:inline-block; flex-shrink:0;"></span>
+            <span>종점 (도착 지하철역/정류장)</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="width:20px; height:3px; background:#ff3b30; display:inline-block; flex-shrink:0;"></span>
+            <span>빨간색 선 굵기 = 수송 통행량</span>
+          </div>
+        </div>
+      `;
     } else {
       const labels = { 
         housing_district: "보라색 색상 농도는 택지지구별 이용수요 단계구분을 나타냅니다.", 
-        od_flow: "초록색은 출발지, 빨간색은 도착지, 화살표 선은 통행 방향과 흐름입니다." 
+        od_flow: "초록색은 기점 정류장, 빨간색은 종점 역/정류장, 선 굵기는 통행 수송량입니다." 
       };
       legendEl.innerHTML = `<h4>지도 범례</h4><div class="legend-item">${labels[type] || "분석 결과"}</div>`;
     }
@@ -260,7 +316,6 @@
             const p = feature.properties || {};
             const geomType = feature.geometry?.type;
 
-            // 💡 [수정] dashArray를 완전한 빈 문자열("")로 설정하여 깔끔한 실선 보장
             if (geomType === "Polygon" || geomType === "MultiPolygon" || queryType === "housing_district" || p.layer_type === "housing_district" || p.layer_type === "housing_districts" || p.admin_level === "housing_district") {
               let fillOpacity = 0.2;
               if (p.total_passengers !== undefined && maxPassengers > 0) {
@@ -268,9 +323,9 @@
                 fillOpacity = 0.15 + (ratio * 0.5);
               }
               return { 
-                color: "#a855f7",      // 보라색
-                weight: 3,             // 선 두께 3px
-                dashArray: "",         // 확실한 실선 처리
+                color: "#a855f7",
+                weight: 3,
+                dashArray: "",
                 fill: true, 
                 fillColor: "#a855f7", 
                 fillOpacity: fillOpacity 
@@ -329,23 +384,13 @@
       }
     }
 
-    // 💡 [수정] 레이어 체인이 아니라 GeoJSON 좌표에서 직접 Bound를 계산하여 확실한 자동 줌인 적용
     setTimeout(() => {
       try {
-        map.invalidateSize(); // 지도 사이즈 동기화
+        map.invalidateSize();
         const validBounds = computeBoundsFromGeoJSON(sanitizedGeojson);
-
-        // 🔍 디버그 로그: 문제가 재발하면 브라우저 콘솔(F12)에서 이 로그를 확인
-        console.log(
-          "[줌투레이어] features:", sanitizedGeojson.features.length,
-          "| bounds 유효:", validBounds.isValid(),
-          validBounds.isValid() ? "| bbox: " + validBounds.toBBoxString() : ""
-        );
 
         if (validBounds.isValid()) {
           map.fitBounds(validBounds, { padding: [50, 50], maxZoom: 15, animate: true });
-        } else {
-          console.warn("[줌투레이어] 유효한 좌표를 찾지 못해 확대를 건너뛰었습니다.");
         }
       } catch (e) {
         console.warn("자동 줌투레이어 에러:", e);
@@ -355,7 +400,6 @@
     showLegend(queryType, maxPassengers, isSubwayData);
   }
 
-  // 💡 [수정] 기본 Reference Layer 의 택지지구 선 역시 보라색 실선으로 통일
   function referenceStyle(feature) {
     const type = feature.properties?.layer_type;
     if (type === "city_boundary") return { color: "#f59e0b", weight: 1.8, dashArray: "4, 6", fill: false, fillOpacity: 0 };
@@ -386,30 +430,24 @@
     return points;
   }
 
-  function arrowIcon(before, end, color, weight) {
-    const degrees = Math.atan2(end.lat - before.lat, end.lng - before.lng) * 180 / Math.PI;
-    const size = Math.max(16, Math.min(weight * 2.5, 32));
-    return L.divIcon({
-      className: "od-arrow-icon",
-      html: `<svg viewBox="0 0 32 32" aria-hidden="true" style="transform:rotate(${degrees}deg); width:${size}px; height:${size}px; display:block;">
-               <path d="M4 5 L28 16 L4 27 L10 16 Z" fill="${color}" stroke="#ffffff" stroke-width="1.5"/>
-             </svg>`,
-      iconSize: [size, size],
-      iconAnchor: [size / 2, size / 2],
-    });
-  }
-
   function createODLayer(geojson) {
     const group = L.featureGroup();
-    geojson.features.forEach((feature) => {
+    odArrowItems = [];
+
+    // 통행량 순 정렬을 위해 OD 라인 순위 계산
+    const odFeatures = geojson.features.filter(f => f.geometry && f.geometry.type === "LineString");
+    const maxVal = Math.max(...odFeatures.map(f => Number(f.properties?.total_passengers || 0)), 1);
+
+    geojson.features.forEach((feature, idx) => {
       const p = feature.properties || {}, geometry = feature.geometry || {};
-      
+
+      // OD 통행선 (LineString) 스타일 보정
       if (geometry.type === "LineString" && Array.isArray(geometry.coordinates) && geometry.coordinates.length >= 2) {
         const startCoord = geometry.coordinates[0];
         const endCoord = geometry.coordinates[geometry.coordinates.length - 1];
 
         if (!isValidCoord(startCoord) || !isValidCoord(endCoord)) return;
-        
+
         let startLng = Number(startCoord[0]), startLat = Number(startCoord[1]);
         if (startLng >= 30 && startLng <= 45 && startLat >= 120 && startLat <= 135) {
           const tmp = startLng; startLng = startLat; startLat = tmp;
@@ -422,27 +460,47 @@
 
         const start = L.latLng(startLat, startLng);
         const end = L.latLng(endLat, endLng);
-        
+
+        const val = Number(p.total_passengers || 0);
+        const ratio = val / maxVal;
+
+        // 이용량 비율에 따른 선 두께, 투명도, 색상 차등 부여
+        const weight = ratio > 0.5 ? 4 : (ratio > 0.2 ? 2.5 : 1);
+        const opacity = ratio > 0.5 ? 0.9 : (ratio > 0.2 ? 0.5 : 0.25);
+        const color = ratio > 0.5 ? "#dc2626" : (ratio > 0.2 ? "#f97316" : "#fca5a5");
+
         const path = curvedPath(start, end);
-        const color = p.line_color || "#ef4444";
-        const weight = p.line_weight || 3.5;
-        const opacity = p.line_opacity || 0.85;
-
         const line = L.polyline(path, { color: color, weight: weight, opacity: opacity, lineCap: "round" }).bindPopup(popup(p));
-        const arrow = L.marker(path[path.length - 1], { icon: arrowIcon(path[path.length - 2], path[path.length - 1], color, weight), interactive: false, zIndexOffset: 1000 });
-        const originMarker = L.circleMarker(start, { radius: Math.max(4, weight * 0.8), fillColor: "#16a34a", color: "#fff", weight: 1, fillOpacity: 0.9 }).bindPopup(`<b>출발지: ${esc(p.start_dong || p.origin_name || '탄현지구')}</b>`);
-
         group.addLayer(line);
-        group.addLayer(arrow);
-        group.addLayer(originMarker);
-      } 
-      else if (p.layer_type === "od_point" && Array.isArray(geometry.coordinates) && isValidCoord(geometry.coordinates)) {
+
+        // 상위 주요 경로(이용량 비율 15% 이상 또는 상위 20개)에만 화살표 머리 표시하여 클러터 방지
+        if (path.length >= 4 && (ratio >= 0.15 || idx < 20)) {
+          const tip = path[path.length - 1];
+          const back = path[path.length - 4];
+
+          const halfArrowPolygon = L.polygon([tip, tip, tip], {
+            color: color, fillColor: color, fillOpacity: opacity,
+            weight: 0, interactive: false
+          });
+
+          group.addLayer(halfArrowPolygon);
+          odArrowItems.push({ tip: tip, back: back, polygonLayer: halfArrowPolygon });
+        }
+      } else if (p.layer_type === "od_boundary") {
+        try {
+          const boundaryLayer = L.geoJSON(feature, {
+            style: { color: "#6366f1", weight: 2, dashArray: "5, 5", fill: true, fillColor: "#6366f1", fillOpacity: 0.05 }
+          });
+          group.addLayer(boundaryLayer);
+        } catch (e) {}
+      } else if (p.layer_type === "od_stop" && geometry.type === "Point") {
         let lng = Number(geometry.coordinates[0]), lat = Number(geometry.coordinates[1]);
         if (lng >= 30 && lng <= 45 && lat >= 120 && lat <= 135) { const tmp = lng; lng = lat; lat = tmp; }
-        const color = p.point_type === "origin" ? "#16a34a" : "#dc2626";
-        group.addLayer(L.circleMarker([lat, lng], { radius: 6, fillColor: color, color: "#fff", weight: 1, fillOpacity: 0.9 }).bindPopup(popup(p)));
+        group.addLayer(L.circleMarker([lat, lng], { radius: 4, fillColor: "#3b82f6", color: "#fff", weight: 1, fillOpacity: 0.8 }));
       }
     });
+
+    setTimeout(updateHalfArrows, 20);
     return group;
   }
 

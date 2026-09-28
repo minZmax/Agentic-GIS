@@ -245,6 +245,78 @@ def get_dong_od_flow(start_dong: str | None = None, end_dong: str | None = None,
     """, params)
 
 
+def get_stop_od_flow(
+    start_district: str | None = None,
+    start_dong: str | None = None,
+    end_is_subway: bool = False,
+    end_station_name: str | None = None,
+    limit: int = 15
+) -> pd.DataFrame:
+    """정류장 ↔ 지하철역 / 개별 정류장 간 OD 수송 패턴 및 좌표 조회"""
+    conditions = ["s1.geometry IS NOT NULL", "s2.geometry IS NOT NULL"]
+    params = {"limit": max(1, min(int(limit), 100))}
+
+    if start_district:
+        conditions.append("(s1.housing_district_name ILIKE :start_district OR s1.dong_name ILIKE :start_district)")
+        params["start_district"] = f"%{start_district}%"
+    elif start_dong:
+        conditions.append("s1.dong_name ILIKE :start_dong")
+        params["start_dong"] = f"%{start_dong}%"
+
+    if end_is_subway or end_station_name:
+        if end_station_name:
+            conditions.append("(m2.bis_stop_name ILIKE :end_station OR s2.stop_name ILIKE :end_station)")
+            params["end_station"] = f"%{end_station_name}%"
+        else:
+            conditions.append("(m2.bis_stop_name ILIKE '%역%' OR s2.stop_name ILIKE '%역%')")
+
+    sql = f"""
+        SELECT 
+            m1.bis_stop_name AS start_stop_name,
+            s1.dong_name AS start_dong,
+            s1.housing_district_name AS start_district,
+            ST_X(
+                CASE WHEN ST_X(ST_Centroid(s1.geometry)) > 1000 
+                     THEN ST_Transform(ST_SetSRID(s1.geometry, 5179), 4326) 
+                     ELSE ST_SetSRID(s1.geometry, 4326) END
+            ) AS start_lon,
+            ST_Y(
+                CASE WHEN ST_X(ST_Centroid(s1.geometry)) > 1000 
+                     THEN ST_Transform(ST_SetSRID(s1.geometry, 5179), 4326) 
+                     ELSE ST_SetSRID(s1.geometry, 4326) END
+            ) AS start_lat,
+            m2.bis_stop_name AS end_stop_name,
+            s2.dong_name AS end_dong,
+            ST_X(
+                CASE WHEN ST_X(ST_Centroid(s2.geometry)) > 1000 
+                     THEN ST_Transform(ST_SetSRID(s2.geometry, 5179), 4326) 
+                     ELSE ST_SetSRID(s2.geometry, 4326) END
+            ) AS end_lon,
+            ST_Y(
+                CASE WHEN ST_X(ST_Centroid(s2.geometry)) > 1000 
+                     THEN ST_Transform(ST_SetSRID(s2.geometry, 5179), 4326) 
+                     ELSE ST_SetSRID(s2.geometry, 4326) END
+            ) AS end_lat,
+            COUNT(*) AS total_trips,
+            SUM(CAST(d.total_passenger_count AS INTEGER)) AS total_passengers
+        FROM tcn_dwtcn_raw d
+        JOIN bis_tcn_stop_mapping m1 ON d.start_stop_id = m1.tcn_stop_id AND m1.confidence_level IN ('EXACT', 'HIGH', 'MEDIUM')
+        JOIN stop_admin_mapping s1 ON m1.bis_stop_id = s1.stop_id
+        JOIN bis_tcn_stop_mapping m2 ON d.end_stop_id = m2.tcn_stop_id AND m2.confidence_level IN ('EXACT', 'HIGH', 'MEDIUM')
+        JOIN stop_admin_mapping s2 ON m2.bis_stop_id = s2.stop_id
+        WHERE {' AND '.join(conditions)}
+        GROUP BY m1.bis_stop_name, s1.dong_name, s1.housing_district_name, s1.geometry,
+                 m2.bis_stop_name, s2.dong_name, s2.geometry
+        ORDER BY total_trips DESC
+        LIMIT :limit
+    """
+    try:
+        return execute_query(sql, params)
+    except Exception as e:
+        print(f"⚠️ [get_stop_od_flow 오류]: {e}")
+        return pd.DataFrame()
+
+
 def get_all_subway_traffic(limit: int = 100) -> pd.DataFrame:
     """고양시 관내(admin_boundary) 경계 내 순수 지하철역 수송 수요 조회"""
     sql = f"""
@@ -441,3 +513,85 @@ def get_stop_traffic_by_name(stop_name: str) -> pd.DataFrame:
         ORDER BY total_passengers DESC
     """
     return execute_spatial_query(sql, {"stop_name": f"%{clean_name}%"})
+
+def get_district_to_subway_od(district_name: str, top_n: int = 200) -> pd.DataFrame:
+    """
+    탄현/탄현1 등 지정 구역 정류장에서 목적지(지하철역)로 가는 OD 통행 데이터를 조회합니다.
+    """
+    import re
+    import pandas as pd
+    from tools.db_tool import execute_query
+
+    limit_clause = f"LIMIT {top_n}" if top_n and top_n > 0 else "LIMIT 200"
+    clean_kw = district_name.replace("지구", "").replace("동", "").strip()
+    base_kw = re.sub(r'\d+', '', clean_kw).strip() or clean_kw
+
+    # 1차 시도: tcn_dwtcn_raw 이용 정류장 단위 OD
+    sql_tcn = f"""
+        SELECT 
+            s.stop_name AS start_stop_name,
+            COALESCE(s.housing_district_name, s.dong_name) AS start_district,
+            COALESCE(sub.station || '역', e.stop_name, '목적지 정류장') AS end_stop_name,
+            ST_X(s.geometry) AS start_lon,
+            ST_Y(s.geometry) AS start_lat,
+            COALESCE(ST_X(sub.geometry), ST_X(e.geometry)) AS end_lon,
+            COALESCE(ST_Y(sub.geometry), ST_Y(e.geometry)) AS end_lat,
+            SUM(COALESCE(CAST(f.user_cnt AS NUMERIC), 1)) AS total_passengers,
+            COUNT(*) AS total_trips
+        FROM tcn_dwtcn_raw f
+        JOIN stop_admin_mapping s 
+          ON CAST(f.on_sttn_id AS VARCHAR) = CAST(s.stop_id AS VARCHAR)
+        LEFT JOIN subway_stations sub 
+          ON CAST(f.off_sttn_id AS VARCHAR) = CAST(sub.station_id AS VARCHAR)
+        LEFT JOIN stop_admin_mapping e 
+          ON CAST(f.off_sttn_id AS VARCHAR) = CAST(e.stop_id AS VARCHAR)
+        WHERE (s.housing_district_name LIKE '%{clean_kw}%' OR s.dong_name LIKE '%{clean_kw}%'
+               OR s.housing_district_name LIKE '%{base_kw}%' OR s.dong_name LIKE '%{base_kw}%')
+        GROUP BY 
+            s.stop_name, s.housing_district_name, s.dong_name,
+            sub.station, e.stop_name,
+            s.geometry, sub.geometry, e.geometry
+        ORDER BY total_passengers DESC
+        {limit_clause};
+    """
+    try:
+        df = execute_query(sql_tcn)
+        if df is not None and not df.empty:
+            df = df.dropna(subset=['start_lon', 'start_lat', 'end_lon', 'end_lat']).copy()
+            if not df.empty:
+                print(f"✅ [1차 정류장 OD 성공] {len(df)}건")
+                return df
+    except Exception as e:
+        print(f"⚠️ [1차 tcn OD 조회 실패]: {e}")
+
+    # 2차 시도 (폴백): summary_dong_od_flow
+    sql_summary = f"""
+        SELECT 
+            f.start_dong AS start_stop_name,
+            f.start_dong AS start_district,
+            COALESCE(sub.station || '역', f.end_dong) AS end_stop_name,
+            ST_X(ST_Centroid(s.geometry)) AS start_lon,
+            ST_Y(ST_Centroid(s.geometry)) AS start_lat,
+            COALESCE(ST_X(sub.geometry), ST_X(ST_Centroid(e.geometry))) AS end_lon,
+            COALESCE(ST_Y(sub.geometry), ST_Y(ST_Centroid(e.geometry))) AS end_lat,
+            SUM(COALESCE(f.total_passenger_count, f.trip_count, 1)) AS total_passengers,
+            SUM(COALESCE(f.trip_count, 1)) AS total_trips
+        FROM summary_dong_od_flow f
+        LEFT JOIN admin_boundary s ON (s.admin_name LIKE '%' || REPLACE(f.start_dong, '동', '') || '%')
+        LEFT JOIN admin_boundary e ON (e.admin_name LIKE '%' || REPLACE(f.end_dong, '동', '') || '%')
+        LEFT JOIN subway_stations sub ON (f.end_dong LIKE '%' || REPLACE(sub.station, '역', '') || '%')
+        WHERE (f.start_dong LIKE '%{base_kw}%' OR s.admin_name LIKE '%{base_kw}%')
+        GROUP BY f.start_dong, f.end_dong, sub.station, s.geometry, e.geometry, sub.geometry
+        ORDER BY total_passengers DESC
+        {limit_clause};
+    """
+    try:
+        df_fb = execute_query(sql_summary)
+        if df_fb is not None and not df_fb.empty:
+            df_fb = df_fb.dropna(subset=['start_lon', 'start_lat', 'end_lon', 'end_lat']).copy()
+            print(f"✅ [2차 summary OD 폴백 성공] {len(df_fb)}건")
+            return df_fb
+    except Exception as e:
+        print(f"❌ [2차 OD 폴백 실패]: {e}")
+
+    return pd.DataFrame()

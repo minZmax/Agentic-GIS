@@ -7,7 +7,8 @@ import pandas as pd
 
 from tools.db_tool import (
     get_district_traffic, 
-    get_dong_od_flow, 
+    get_dong_od_flow,
+    get_stop_od_flow,
     get_housing_district_summary, 
     get_top_stops,
     get_stop_traffic_by_name,
@@ -30,7 +31,7 @@ def _markdown_table(frame: pd.DataFrame, maximum_rows: int = 100) -> str:
     if frame is None or frame.empty:
         return "조회 조건에 맞는 데이터가 없습니다."
     
-    clean_df = frame.drop(columns=["geometry"], errors="ignore") if "geometry" in frame.columns else frame
+    clean_df = frame.drop(columns=["geometry", "start_lon", "start_lat", "end_lon", "end_lat"], errors="ignore") if "geometry" in frame.columns or "start_lon" in frame.columns else frame
     display = clean_df.head(maximum_rows).copy()
     
     for column in display.select_dtypes(include="number"):
@@ -63,7 +64,7 @@ def _build_chart_data(data: pd.DataFrame | None) -> list[dict]:
     chart_list = []
     try:
         label_col = None
-        for col in ["stop_name", "housing_district_name", "start_dong", "admin_name"]:
+        for col in ["start_stop_name", "stop_name", "housing_district_name", "start_dong", "admin_name"]:
             if col in data.columns:
                 label_col = col
                 break
@@ -78,7 +79,10 @@ def _build_chart_data(data: pd.DataFrame | None) -> list[dict]:
             top_df = data.head(10)
             for _, row in top_df.iterrows():
                 lbl = str(row.get(label_col, "")).strip()
-                if label_col == "start_dong" and "end_dong" in data.columns:
+                if label_col == "start_stop_name" and "end_stop_name" in data.columns:
+                    end_lbl = str(row.get("end_stop_name", "")).strip()
+                    lbl = f"{lbl} → {end_lbl}"
+                elif label_col == "start_dong" and "end_dong" in data.columns:
                     end_lbl = str(row.get("end_dong", "")).strip()
                     lbl = f"{lbl} → {end_lbl}"
                 
@@ -100,7 +104,47 @@ def query_deterministic(prompt: str) -> dict:
     limit = int(match.group(1)) if match else 10
     limit = max(1, min(limit, 100))
 
-    # 1. 지하철/철도 관련 요청 분기 정교화
+    clean_prompt = prompt.replace("고양시", "").replace("고양 시", "")
+    dongs = _find_terms(clean_prompt, KNOWN_DONGS)
+    target_district = _extract_district_name(prompt)
+
+    # 💡 1. OD 통행 분석 (최우선 분기: 'OD', '통행', '패턴', '이동량', '흐름' 등 키워드가 포함되면 최우선 수행)
+    has_od_keyword = any(kw in lower for kw in ("od", "통행", "출발", "도착", "이동량", "흐름", "패턴"))
+    if has_od_keyword or len(dongs) >= 2:
+        start_dong = dongs[0] if len(dongs) >= 1 else target_district
+        end_dong = dongs[1] if len(dongs) >= 2 else None
+        
+        is_stop_level = any(kw in lower for kw in ("정류장", "버스", "역", "지하철")) or target_district is not None
+        is_subway_target = any(kw in lower for kw in ("지하철", "역", "3호선", "경의선", "경의중앙선"))
+
+        data = None
+        if is_stop_level:
+            data = get_stop_od_flow(
+                start_district=target_district or start_dong,
+                start_dong=start_dong,
+                end_is_subway=is_subway_target,
+                limit=limit
+            )
+
+        if data is None or data.empty:
+            data = get_dong_od_flow(start_dong, end_dong, limit)
+        
+        title = "고양시 OD 통행 패턴 분석"
+        if (target_district or start_dong) and is_subway_target:
+            title = f"{target_district or start_dong}지구 버스 정류장 → 주요 지하철역 OD 통행 패턴"
+        elif start_dong and end_dong:
+            title = f"{start_dong} → {end_dong} OD 통행 분석"
+        elif start_dong:
+            title = f"{start_dong} 출발 OD 통행 패턴 분석"
+
+        return {
+            "query_type": "od_flow",
+            "text": f"### {title}\n\n" + _markdown_table(data),
+            "geojson": get_od_flow_geojson(data),
+            "chart_data": _build_chart_data(data)
+        }
+
+    # 2. 지하철/철도 관련 요청 분기 정교화
     subway_keywords = ["지하철", "지하철역", "3호선", "경의중앙선", "경의선", "전철", "gtx"]
     is_subway_req = any(kw in lower for kw in subway_keywords)
 
@@ -148,30 +192,6 @@ def query_deterministic(prompt: str) -> dict:
             "chart_data": _build_chart_data(subway_data)
         }
 
-    clean_prompt = prompt.replace("고양시", "").replace("고양 시", "")
-    dongs = _find_terms(clean_prompt, KNOWN_DONGS)
-
-    # 2. OD 통행 분석
-    has_od_keyword = any(kw in lower for kw in ("od", "통행", "출발", "도착", "이동량", "흐름"))
-    if has_od_keyword or len(dongs) >= 2:
-        start_dong = dongs[0] if len(dongs) >= 1 else None
-        end_dong = dongs[1] if len(dongs) >= 2 else None
-        
-        data = get_dong_od_flow(start_dong, end_dong, limit)
-        
-        title = "고양시 행정동간 버스 OD 통행 분석"
-        if start_dong and end_dong:
-            title = f"{start_dong} → {end_dong} 버스 OD 통행 분석"
-        elif start_dong:
-            title = f"{start_dong} 출발 버스 OD 통행 분석"
-
-        return {
-            "query_type": "od_flow",
-            "text": f"### {title}\n\n" + _markdown_table(data),
-            "geojson": get_od_flow_geojson(data),
-            "chart_data": _build_chart_data(data)
-        }
-
     # 3. 택지지구 / 지역 분석
     target_district = _extract_district_name(prompt)
     if target_district:
@@ -214,6 +234,13 @@ def query_agent(prompt: str) -> dict:
         try:
             return query_with_gemini(prompt)
         except Exception as exc:
+            # 💡 에러 원인을 터미널 콘솔에 명확하게 출력합니다.
+            print("\n" + "="*60)
+            print(f"❌ [Gemini API 호출 에러 발생]: {exc}")
+            import traceback
+            traceback.print_exc()
+            print("="*60 + "\n")
+            
             result = query_deterministic(prompt)
             if "RESOURCE_EXHAUSTED" in str(exc) or "quota" in str(exc).lower():
                 note = "Gemini 무료 요청 한도에 도달해 이번 요청은 로컬 분석 모드로 처리했습니다."
