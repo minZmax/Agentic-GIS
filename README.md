@@ -1,15 +1,41 @@
-<<<<<<< HEAD
-# 고양시 Agentic GIS MVP
+# 🌍 고양시 Agentic GIS
 
-PostgreSQL/PostGIS에 적재한 고양시 행정구역, 버스 노선·정류장, 교통카드 데이터를 자연어로 조회하고 Leaflet 지도에 함께 표시하는 웹 애플리케이션입니다.
+> 자연어로 질문하면 PostGIS 데이터를 분석하여 **표 + 지도 시각화**로 답변하는 AI 기반 GIS 웹 애플리케이션
+
+PostgreSQL/PostGIS에 적재한 고양시 행정구역, 버스 노선·정류장, 교통카드 OD 데이터를 자연어로 조회하고 Leaflet 지도에 함께 표시합니다.
+
+---
+
+## 🚀 Quick Start (Docker — 권장)
+
+**사전 요구사항**: [Docker Desktop](https://www.docker.com/products/docker-desktop/) 설치 및 실행
+
+```bash
+# 1. 저장소 클론
+git clone https://github.com/minZmax/Agentic-GIS.git
+cd Agentic-GIS
+
+# 2. 환경 변수 설정 (.env 생성)
+cp .env.example .env
+# .env 파일을 열어 GEMINI_API_KEY 를 본인의 키로 입력 (Google AI Studio에서 무료 발급 가능)
+# ※ API 키가 없어도 규칙 기반(Rule-based) 분석 모드로 기본 조회 및 지도 시각화가 정상 동작합니다.
+
+# 3. Docker 빌드 & 실행 (DB 시드 데이터 약 8MB 자동 복원)
+docker compose up --build
+
+# 4. 브라우저에서 접속
+#    http://localhost:5000
+```
+
+> **참고**: 최초 실행 시 PostGIS 컨테이너가 시드 데이터를 복원하는 데 약 30초~1분 소요됩니다. `agentic-gis-web` 컨테이너 로그에 `Gemini API Key Status: LOADED` (또는 키 미입력 시 `MISSING!`) 가 출력되면 준비 완료입니다.
 
 ### 종료 & 데이터 초기화
 
 ```bash
-# 종료
+# 컨테이너 종료
 docker compose down
 
-# DB 볼륨까지 완전 삭제 후 재시작 (시드 데이터 재복원)
+# DB 볼륨까지 완전 삭제 후 초기 상태로 재시작 (시드 데이터 재복원)
 docker compose down -v
 docker compose up --build
 ```
@@ -18,7 +44,7 @@ docker compose up --build
 
 ## 🖥️ 로컬 개발 환경 실행
 
-PostgreSQL/PostGIS가 이미 설치되어 있고, DB에 데이터가 적재되어 있는 경우:
+PostgreSQL/PostGIS가 이미 로컬에 설치되어 있고, DB에 데이터가 적재되어 있는 경우:
 
 1. `.env` 파일에 DB 접속 정보를 설정합니다.
 
@@ -81,3 +107,30 @@ python app.py
 ## 🤖 Gemini LLM 에이전트
 
 `GEMINI_API_KEY`가 설정되면 Gemini가 질문에 맞는 분석 도구를 선택하고 결과를 한국어로 요약합니다. 키가 없으면 기존의 규칙 기반 분석기가 동작합니다. `tools/gemini_agent.py`는 임의 SQL을 허용하지 않으며, 모델에는 최대 30개 집계 행만 전달합니다. 새 분석 기능은 파라미터화된 DB 함수와 GeoJSON 변환기를 추가한 뒤, 이 파일의 허용 도구 목록에 등록하세요.
+
+---
+
+## 📁 프로젝트 구조
+
+```
+Agentic-GIS/
+├── app.py                  # Flask 메인 서버
+├── docker-compose.yml      # Docker Compose 오케스트레이션
+├── Dockerfile              # Python 웹 앱 컨테이너 빌드 파일
+├── docker/init-db/         # PostGIS 자동 초기화 스크립트 & 시드 덤프
+├── db/connection.py        # DB 커넥션 풀 및 팩토리
+├── tools/
+│   ├── db_tool.py          # 안전한 파라미터화 DB 쿼리 함수
+│   ├── gis_agent.py        # 규칙 기반 GIS 분석 에이전트 & 폴백
+│   ├── gemini_agent.py     # Gemini LLM 에이전트
+│   ├── map_data.py         # GeoJSON 변환기
+│   └── map_tool.py         # 지도 생성 유틸리티
+├── static/
+│   ├── index.html          # Leaflet 기반 반응형 대시보드
+│   ├── css/                # 스타일시트
+│   └── js/app.js           # 프론트엔드 통신 및 지도 렌더러
+├── pipeline/               # 데이터 ETL/전처리 파이프라인
+├── .env.example            # 환경 변수 설정 템플릿
+├── .gitattributes          # 크로스 플랫폼 줄바꿈(LF) 보장
+└── requirements.txt        # Python 의존성 패키지 목록
+```
