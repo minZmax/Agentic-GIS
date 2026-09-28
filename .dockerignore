@@ -1,0 +1,24 @@
+# Git / IDE
+.git
+.gitignore
+.env
+.vscode
+.idea
+__pycache__
+*.pyc
+
+# Python 가상환경 (Docker 이미지에 불필요)
+venv/
+
+# 대용량 데이터 / 임시 파일
+data/raw/
+*.html
+!static/index.html
+
+# Docker 관련
+docker/init-db/goyang_seed.dump
+
+# 기타
+README.md
+*.md
+requirements.tst

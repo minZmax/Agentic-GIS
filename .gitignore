@@ -3,3 +3,13 @@ venv/
 __pycache__/
 *.pyc
 data/raw/
+
+# Docker (대용량 시드 덤프는 GitHub Release에서 별도 관리)
+# docker/init-db/goyang_seed.dump
+
+# 생성된 지도 HTML
+od_flow_map.html
+preview_map.html
+top_*_stops_map.html
+*_map.html
+!static/index.html

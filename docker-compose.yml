@@ -1,0 +1,59 @@
+# ─────────────────────────────────────────────
+# Agentic-GIS  ·  Docker Compose
+# Web App (Flask/Gunicorn) + PostGIS Database
+# ─────────────────────────────────────────────
+# 사용법:
+#   1. .env.example 을 복사하여 .env 파일 생성
+#      cp .env.example .env
+#   2. .env 파일에 본인의 GEMINI_API_KEY 입력
+#   3. docker-compose up --build
+#   4. 브라우저에서 http://localhost:5000 접속
+# ─────────────────────────────────────────────
+
+services:
+  # ── PostGIS 데이터베이스 ──
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: agentic-gis-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-goyang}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-1234}
+    ports:
+      # 로컬 PostgreSQL(5432)과의 포트 충돌 방지를 위해 호스트 포트를 기본 5433으로 매핑
+      - "${HOST_DB_PORT:-5433}:5432"
+    volumes:
+      # 시드 데이터 — 컨테이너 최초 생성 시 자동 복원
+      - ./docker/init-db/01-restore.sh:/docker-entrypoint-initdb.d/01-restore.sh:ro
+      - ./docker/init-db/goyang_seed.dump:/docker-entrypoint-initdb.d/goyang_seed.dump:ro
+      # 영구 볼륨으로 데이터 유지
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-goyang}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Flask Web 애플리케이션 ──
+  web:
+    build: .
+    container_name: agentic-gis-web
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "5000:5000"
+    environment:
+      # Docker 내부 네트워크에서 DB 컨테이너를 'db' 호스트명으로 접근
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-goyang}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-1234}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.1-flash-lite}
+
+volumes:
+  pgdata:

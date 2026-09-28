@@ -1,0 +1,5 @@
+# Linux 환경에서 실행되는 셸 스크립트의 줄바꿈을 LF로 고정 (Windows 클론 시 CRLF 변환 방지)
+*.sh text eol=lf
+
+# 덤프 파일 바이너리 처리
+*.dump binary
