@@ -2,7 +2,7 @@
 
 > 자연어로 질문하면 PostGIS 데이터를 분석하여 **표 + 차트 + 동적 지도 시각화**로 답변하는 AI 기반 대화형 GIS 웹 애플리케이션
 
-![메인 시연 화면](docs/images/03_od_flow_analysis.png)
+![고양시 Agentic GIS 메인 화면](docs/images/01_dashboard_main.png)
 
 PostgreSQL/PostGIS에 적재한 고양시 행정구역, 버스 노선·정류장, 교통카드 OD 데이터를 자연어로 조회하고 Leaflet 지도에 함께 표시합니다.
 
